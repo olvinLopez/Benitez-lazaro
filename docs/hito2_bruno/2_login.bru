@@ -1,0 +1,23 @@
+meta {
+  name: 2 - POST /login como jose
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{base}}/login
+  body: json
+  auth: none
+}
+
+body:json {
+  { "usuario": "jose", "clave": "jose-2026" }
+}
+
+script:post-response {
+  bru.setVar("tokenJose", res.body.token);
+}
+
+assert {
+  res.status: eq 200
+}

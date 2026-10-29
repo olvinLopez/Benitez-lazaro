@@ -1,0 +1,19 @@
+meta {
+  name: 3 - GET /comentarios con token de jose
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{base}}/comentarios
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{tokenJose}}
+}
+
+assert {
+  res.status: eq 200
+}

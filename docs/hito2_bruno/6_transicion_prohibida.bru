@@ -1,0 +1,25 @@
+meta {
+  name: 6 - PATCH comentario 1 destacado a pendiente (prohibida)
+  type: http
+  seq: 6
+}
+
+patch {
+  url: {{base}}/comentarios/1/estado
+  body: json
+  auth: none
+}
+
+body:json {
+  { "estado": "pendiente" }
+}
+
+script:pre-request {
+  const axios = require("axios");
+  const r = await axios.post(bru.getEnvVar("base") + "/login", { usuario: "luis", clave: "luis-2026" });
+  req.setHeader("Authorization", "Bearer " + r.data.token);
+}
+
+assert {
+  res.status: eq 422
+}

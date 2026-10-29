@@ -1,0 +1,345 @@
+openapi: 3.0.3
+info:
+  title: AyudaComún API
+  version: 0.2.0
+  license:
+    name: Uso académico ULEAM
+    url: https://www.uleam.edu.ec
+  description: |
+    Comunidad de soporte: los clientes comentan para ayudar a otros, los comentarios
+    útiles suman puntos y medallas simbólicas. Los endpoints marcados «(plan)» están
+    en el mapa del hito 1 pero se construyen después del hito 2.
+servers:
+    - url: /
+security:
+  - bearerAuth: []
+tags:
+  - name: Sesión
+    description: Inicio de sesión y token
+  - name: Comentarios
+    description: Comentarios de ayuda y su máquina de estados
+  - name: Usuarios
+    description: Miembros y moderadores de la comunidad
+  - name: Puntos y medallas
+    description: Reputación y recompensas simbólicas
+paths:
+  /login:
+    post:
+      tags: [Sesión]
+      operationId: iniciarSesion
+      summary: Iniciar sesión y recibir el token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginEntrada' }
+      responses:
+        '200':
+          description: Token firmado (vale 1 hora)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Token' }
+        '400': { $ref: '#/components/responses/JsonInvalido' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '422': { $ref: '#/components/responses/Invalido' }
+  /comentarios:
+    get:
+      tags: [Comentarios]
+      operationId: listarComentarios
+      summary: Listar comentarios (paginado, máximo 20)
+      parameters:
+        - name: estado
+          in: query
+          schema: { $ref: '#/components/schemas/Estado' }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 20, default: 20 }
+      responses:
+        '200':
+          description: Lista de comentarios
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Comentario' }
+        '400': { $ref: '#/components/responses/ParametrosInvalidos' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+    post:
+      tags: [Comentarios]
+      operationId: crearComentario
+      summary: Crear un comentario (nace pendiente; el autor es quien tiene el token)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ComentarioEntrada' }
+      responses:
+        '201':
+          description: Comentario creado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Comentario' }
+        '400': { $ref: '#/components/responses/JsonInvalido' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '422': { $ref: '#/components/responses/Invalido' }
+  /comentarios/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Comentarios]
+      operationId: verComentario
+      summary: Ver un comentario
+      responses:
+        '200':
+          description: El comentario
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Comentario' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+    delete:
+      tags: [Comentarios]
+      operationId: borrarComentario
+      summary: Borrar un comentario (solo moderador)
+      responses:
+        '204': { description: Borrado }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+  /comentarios/{id}/estado:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    patch:
+      tags: [Comentarios]
+      operationId: cambiarEstadoComentario
+      summary: Cambiar el estado (solo moderador; solo hacia adelante)
+      description: |
+        pendiente → aprobado → destacado. Cualquier otra transición responde 422.
+        Al pasar a destacado se suman 10 puntos y se otorga la medalla que corresponda.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CambioEstado' }
+      responses:
+        '200':
+          description: Comentario actualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Comentario' }
+        '400': { $ref: '#/components/responses/JsonInvalido' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '422': { $ref: '#/components/responses/Invalido' }
+  /usuarios:
+    get:
+      tags: [Usuarios]
+      operationId: listarUsuarios
+      summary: Listar usuarios con sus comentarios y medallas (sin problema N+1)
+      responses:
+        '200':
+          description: Lista de usuarios
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Usuario' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+  /categorias:
+    get:
+      tags: [Comentarios]
+      operationId: listarCategorias
+      summary: Listar categorías de ayuda (plan)
+      responses:
+        '200':
+          description: Lista de categorías
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Categoria' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+  /usuarios/{id}/puntos:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Puntos y medallas]
+      operationId: listarPuntosDeUsuario
+      summary: Historial de puntos de un usuario (plan)
+      responses:
+        '200':
+          description: Movimientos de puntos
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Punto' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+  /medallas:
+    get:
+      tags: [Puntos y medallas]
+      operationId: listarMedallas
+      summary: Catálogo de medallas (plan)
+      responses:
+        '200':
+          description: Lista de medallas
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Medalla' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+  /usuarios/{id}/medallas:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Puntos y medallas]
+      operationId: listarMedallasDeUsuario
+      summary: Medallas ganadas por un usuario (plan)
+      responses:
+        '200':
+          description: Medallas del usuario
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/UsuarioMedalla' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
+  responses:
+    JsonInvalido:
+      description: El cuerpo no es un JSON válido (400)
+      content:
+        text/plain:
+          schema: { type: string }
+    ParametrosInvalidos:
+      description: page o limit inválidos, o estado fuera de la lista (400)
+      content:
+        text/plain:
+          schema: { type: string }
+    NoAutenticado:
+      description: Falta el token, está vencido o es inválido (401)
+      content:
+        text/plain:
+          schema: { type: string }
+    SinPermiso:
+      description: El rol del token no puede hacer esto, o la suscripción del negocio no está activa (403)
+      content:
+        text/plain:
+          schema: { type: string }
+    NoEncontrado:
+      description: No existe el registro (404)
+      content:
+        text/plain:
+          schema: { type: string }
+    Invalido:
+      description: El JSON es válido pero la regla del negocio lo rechaza, por ejemplo una transición prohibida (422)
+      content:
+        text/plain:
+          schema: { type: string }
+  schemas:
+    Estado:
+      type: string
+      enum: [pendiente, aprobado, destacado]
+    Rol:
+      type: string
+      enum: [miembro, moderador]
+    LoginEntrada:
+      type: object
+      required: [usuario, clave]
+      properties:
+        usuario: { type: string, example: luis }
+        clave: { type: string, example: luis-2026 }
+    Token:
+      type: object
+      required: [token]
+      properties:
+        token: { type: string }
+    ComentarioEntrada:
+      type: object
+      required: [texto]
+      properties:
+        texto: { type: string, maxLength: 1000 }
+        categoria_id: { type: integer, nullable: true }
+    CambioEstado:
+      type: object
+      required: [estado]
+      properties:
+        estado: { $ref: '#/components/schemas/Estado' }
+    Comentario:
+      type: object
+      properties:
+        id: { type: integer }
+        usuario_id: { type: integer }
+        categoria_id: { type: integer, nullable: true }
+        texto: { type: string }
+        estado: { $ref: '#/components/schemas/Estado' }
+        moderador_id: { type: integer, nullable: true }
+        creado: { type: string, format: date-time }
+        actualizado: { type: string, format: date-time }
+    Usuario:
+      type: object
+      properties:
+        id: { type: integer }
+        negocio_id: { type: integer }
+        nombre: { type: string }
+        correo: { type: string }
+        rol: { $ref: '#/components/schemas/Rol' }
+        reputacion: { type: integer }
+        creado: { type: string, format: date-time }
+        comentarios:
+          type: array
+          items: { $ref: '#/components/schemas/Comentario' }
+        medallas:
+          type: array
+          items: { $ref: '#/components/schemas/UsuarioMedalla' }
+    Categoria:
+      type: object
+      properties:
+        id: { type: integer }
+        nombre: { type: string }
+        descripcion: { type: string }
+    Punto:
+      type: object
+      properties:
+        id: { type: integer }
+        usuario_id: { type: integer }
+        comentario_id: { type: integer, nullable: true }
+        cantidad: { type: integer }
+        motivo: { type: string }
+        creado: { type: string, format: date-time }
+    Medalla:
+      type: object
+      properties:
+        id: { type: integer }
+        nombre: { type: string }
+        puntos_minimos: { type: integer }
+        descripcion: { type: string }
+    UsuarioMedalla:
+      type: object
+      properties:
+        id: { type: integer }
+        usuario_id: { type: integer }
+        medalla_id: { type: integer }
+        comentario_id: { type: integer, nullable: true }
+        otorgada: { type: string, format: date-time }
+        medalla: { $ref: '#/components/schemas/Medalla' }

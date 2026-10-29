@@ -1,0 +1,23 @@
+meta {
+  name: 4 - PATCH estado con token de jose (miembro)
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{base}}/comentarios/6/estado
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{tokenJose}}
+}
+
+body:json {
+  { "estado": "aprobado" }
+}
+
+assert {
+  res.status: eq 403
+}
